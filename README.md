@@ -12,13 +12,13 @@ and by opening the ingested media folder after execution.
 
 Ingester assumes some facts about your PC and your folder structure:
 
-- You use a Windows PC (ingester ist 90% cross-platform but there are probably some adaptations needed. Make a PR if you want!)
+- You use a Windows PC (ingester is 90% cross-platform but there are probably some adaptations needed. Make a PR if you want!)
 - Your memory card always gets the same drive letter. Ingester uses a configured source folder.
 - All your relevant video projects have the same parent folder
 - Every video project has its own folder
 - Every ingest is done in a new subfolder within a project
 
-### Projects structure
+### Expected projects structure sample
 
 ```text
 C:\video projects
