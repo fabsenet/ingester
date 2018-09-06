@@ -1,0 +1,21 @@
+{
+  "name": "ingester",
+  "version": "1.0.0",
+  "description": "a script to ingest media files from a memory card in an opinionated projects structure",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "https://github.com/fabsenet",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^2.4.1",
+    "cpy": "^7.0.1",
+    "globby": "^8.0.1",
+    "graceful-fs": "^4.1.11",
+    "make-dir": "^1.3.0",
+    "progress": "^2.0.0",
+    "prompts": "^1.0.0"
+  }
+}
