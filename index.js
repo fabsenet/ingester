@@ -97,7 +97,13 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
     config.ingestCount = 0;
   }
   log(`searching in ${chalk.green(globalConfig.sourceDir)} for files to ingest.`);
-  var absoluteFiles = await globby(globalConfig.sourceFilters, { cwd: globalConfig.sourceDir, absolute: true, stats: true });
+  var absoluteFiles = await globby(globalConfig.sourceFilters, {
+    cwd: globalConfig.sourceDir,
+    absolute: true,
+    stats: true,
+    case: false,
+  });
+
   if (absoluteFiles.length === 0) {
     log(chalk.red("Could not find any files to ingest."));
     return;
@@ -112,7 +118,9 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   var totalSize = absoluteFiles.reduce((prev, cur) => prev + cur.size, 0);
 
-  log(`preparing to ingest ${chalk.green(absoluteFiles.length)} files with a size of ${chalk.green((totalSize / 1024.0 / 1024.0).toPrecision(3))} mb.`);
+  let mb = totalSize / 1024.0 / 1024.0;
+  if (mb < 1000) { mb = mb.toPrecision(3); } else { mb = Math.round(mb); }
+  log(`preparing to ingest ${chalk.green(absoluteFiles.length)} files with a size of ${chalk.green(mb)} mb.`);
 
   var copyProgress = new ProgressBar("[:bar] :percent :etas", { complete: chalk.green("="), total: totalSize, width: 35, incomplete: " " });
 
@@ -120,7 +128,8 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
   await cpy(globalConfig.sourceFilters, targetFolderPath, {
     cwd: globalConfig.sourceDir,
     overwrite: false,
-    rename: p => `${config.prefix}${p}`
+    rename: p => `${config.prefix}${p}`,
+    case: false,
   }).on("progress", progress => {
     copyProgress.tick(progress.completedSize - lastCompletedSize);
     lastCompletedSize = progress.completedSize;
