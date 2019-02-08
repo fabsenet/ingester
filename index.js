@@ -41,7 +41,7 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
   }
 
   //remove with underscore
-  projectDirectories = projectDirectories.filter(f => !f.startsWith("_"));
+  projectDirectories = projectDirectories.filter(f => !f.startsWith("_") && f !== "Capture" && !f.match(/backup/i));
 
   //map to fullnames
   projectDirectories = await Promise.all(
@@ -63,13 +63,16 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
   //sort by modification time desc
   projectDirectories = projectDirectories.sort((f1, f2) => (f1.stat.mtime > f2.stat.mtime ? -1 : 1));
 
+  const choices = [{ title: "*** exit ***", value: null }, ...projectDirectories.map(p => ({ title: p.name, value: p }))];
+  //console.log(choices);
   const projectDir = (await prompts({
     type: "select",
     name: "value",
     message: "Select the project to ingest in",
     initial: 0,
-    choices: projectDirectories.map(p => ({ title: p.name, value: p }))
+    choices: choices
   })).value;
+  if (projectDir === null) return;
 
   log("the target is " + chalk.green(projectDir.name));
   //load ingest.conf.json from project folder
