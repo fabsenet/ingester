@@ -9,6 +9,8 @@ const exec = require("child_process").exec;
 const cpy = require("cpy");
 const ProgressBar = require("progress");
 const globby = require("globby");
+const moment = require("moment");
+const moveFile = require('move-file');
 
 const fsReadDir = util.promisify(gracefulFs.readdir);
 const fsExists = util.promisify(gracefulFs.exists);
@@ -127,7 +129,9 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   var copyProgress = new ProgressBar("[:bar] :percent :etas", { complete: chalk.green("="), total: totalSize, width: 35, incomplete: " " });
 
+
   var lastCompletedSize = 0;
+  //actual copy
   await cpy(globalConfig.sourceFilters, targetFolderPath, {
     cwd: globalConfig.sourceDir,
     overwrite: false,
@@ -138,6 +142,11 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
     lastCompletedSize = progress.completedSize;
   });
 
+  //rename originals to avoid double copy
+  const suffix = `.copied.${moment().format("YYYY-MM-DD_hh-mm-ss")}.bak`
+  await Promise.all(absoluteFiles.map(file => moveFile(file.path, file.path + suffix)));
+
+  // save config
   await fsWritefile(configFile, JSON.stringify(config));
 
   exec(`explorer.exe /select,"${targetFolderPath}"`);
