@@ -20,7 +20,6 @@ const fsReadfile = util.promisify(gracefulFs.readFile);
 const fsWritefile = util.promisify(gracefulFs.writeFile);
 
 (async () => {
-  //TODO add global conf!
   const globalConfigFilename = path.resolve(process.env.USERPROFILE, "ingester.conf.json");
   let globalConfig;
   if (await fsExists(globalConfigFilename)) {
@@ -65,9 +64,9 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
   //sort by modification time desc
   projectDirectories = projectDirectories.sort((f1, f2) => (f1.stat.mtime > f2.stat.mtime ? -1 : 1));
 
-  const choices = [{ title: "*** exit ***", value: null }, ...projectDirectories.map(p => ({ title: p.name, value: p }))];
+  const choices = [{ title: "** exit **", value: null }, { title: "** new project **", value: "new" }, ...projectDirectories.map(p => ({ title: p.name, value: p }))];
   //console.log(choices);
-  const projectDir = (await prompts({
+  let projectDir = (await prompts({
     type: "select",
     name: "value",
     message: "Select the project to ingest in",
@@ -76,11 +75,24 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
   })).value;
   if (projectDir === null) return;
 
+  if (projectDir === "new") {
+    //create new project!
+    var newProject = await prompts({
+      name: "name",
+      type: "text",
+      initial: moment().format("yyyy_"),
+      message: "Name of new project"
+    });
+
+    await makeDir(globalConfig.projectsDir + "/" + newProject.name);
+    newProject.fullPath = await fsRealpath(globalConfig.projectsDir + "/" + newProject.name);
+    projectDir = newProject;
+  }
+
   log("the target is " + chalk.green(projectDir.name));
   //load ingest.conf.json from project folder
 
   let config;
-
   const configFile = projectDir.fullPath + "/ingest.conf.json";
   if (await fsExists(configFile)) {
     //load existing config
@@ -93,6 +105,7 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
     config = await prompts({
       type: "text",
       name: "prefix",
+      initial: `${projectDir.name}_`,
       message: "Enter the " + chalk.yellow("prefix") + " the ingested files should get"
     });
     if (!config.prefix) {
@@ -100,14 +113,25 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
       return;
     }
     config.ingestCount = 0;
+
+
+    await cpy("*", projectDir.fullPath, {
+      cwd: globalConfig.projectsDir + "/_template",
+      overwrite: false,
+      rename: p => p.replace("$prefix$", config.prefix),
+      case: false,
+    });
+
   }
   log(`searching in ${chalk.green(globalConfig.sourceDir)} for files to ingest.`);
-  var absoluteFiles = await globby(globalConfig.sourceFilters, {
+  const globbyOptions = {
     cwd: globalConfig.sourceDir,
+    onlyFiles: true,
+    caseSensitiveMatch: false,
     absolute: true,
     stats: true,
-    case: false,
-  });
+  };
+  var absoluteFiles = await globby(globalConfig.sourceFilters, globbyOptions);
 
   if (absoluteFiles.length === 0) {
     log(chalk.red("Could not find any files to ingest."));
@@ -121,7 +145,7 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   await makeDir(targetFolderPath);
 
-  var totalSize = absoluteFiles.reduce((prev, cur) => prev + cur.size, 0);
+  var totalSize = absoluteFiles.reduce((prev, cur) => prev + cur.stats.size, 0);
 
   let mb = totalSize / 1024.0 / 1024.0;
   if (mb < 1000) { mb = mb.toPrecision(3); } else { mb = Math.round(mb); }
@@ -132,7 +156,7 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   var lastCompletedSize = 0;
   //actual copy
-  await cpy(globalConfig.sourceFilters, targetFolderPath, {
+  var cpyResult = await cpy(globalConfig.sourceFilters, targetFolderPath, {
     cwd: globalConfig.sourceDir,
     overwrite: false,
     rename: p => `${config.prefix}${p}`,
