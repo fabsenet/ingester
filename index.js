@@ -124,14 +124,29 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   }
   log(`searching in ${chalk.green(globalConfig.sourceDir)} for files to ingest.`);
-  const globbyOptions = {
-    cwd: globalConfig.sourceDir,
-    onlyFiles: true,
-    caseSensitiveMatch: false,
-    absolute: true,
-    stats: true,
-  };
-  var absoluteFiles = await globby(globalConfig.sourceFilters, globbyOptions);
+
+  var absoluteFiles = globalConfig.sourceDir
+    .filter(async dir => await fsExists(dir))
+    .map(dir => {
+      return {
+        cwd: dir,
+        onlyFiles: true,
+        caseSensitiveMatch: false,
+        absolute: true,
+        stats: true,
+      };
+    })
+    .map(async function (globbyOptions) {
+      try {
+        return (await globby(globalConfig.sourceFilters, globbyOptions));
+      }
+      catch (e) {
+        console.log(`ignoring folder ${globbyOptions.cwd} because there were errors.`);
+        return [];
+      }
+    });
+
+  absoluteFiles = (await Promise.all(absoluteFiles)).flat();
 
   if (absoluteFiles.length === 0) {
     log(chalk.red("Could not find any files to ingest."));
@@ -156,8 +171,7 @@ const fsWritefile = util.promisify(gracefulFs.writeFile);
 
   var lastCompletedSize = 0;
   //actual copy
-  var cpyResult = await cpy(globalConfig.sourceFilters, targetFolderPath, {
-    cwd: globalConfig.sourceDir,
+  var cpyResult = await cpy(absoluteFiles.map(af => af.path), targetFolderPath, {
     overwrite: false,
     rename: p => `${config.prefix}${p}`,
     case: false,
